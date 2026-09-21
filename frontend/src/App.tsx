@@ -3,6 +3,7 @@ import axios from 'axios'
 
 type RecordItem = {
   id: number
+  batch_id: number
   original_product_name?: string
   original_category?: string
   original_price?: string
@@ -14,10 +15,13 @@ type RecordItem = {
   cleaned_inventory?: number
   cleaned_tags?: string
   confidence_score: number
+  automation_confidence: number
   status: string
   recommended_action: string
   issue_reasons: string[]
   severity: string
+  review_status: string
+  reviewer_decision?: string
   reviewed: boolean
   exportable: boolean
 }
@@ -32,6 +36,7 @@ type UploadSummary = {
   duplicate_count: number
   invalid_count: number
   attention_count: number
+  publishable_count: number
   average_confidence: number
   schema_drift_detected: boolean
   schema_report: {
@@ -89,7 +94,7 @@ function App() {
     })
   }, [catalog, searchText, statusFilter])
 
-  const exportableCount = useMemo(() => catalog.filter((record) => record.exportable).length, [catalog])
+  const exportableCount = summary?.publishable_count ?? catalog.filter((record) => record.exportable).length
 
   const fetchData = async () => {
     try {
@@ -107,7 +112,7 @@ function App() {
         return
       }
       const [catalogRes, reviewRes, driftRes] = await Promise.all([
-        axios.get<RecordItem[]>(`${API_BASE}/catalog`, { params: { batch_id: latest.batch_id } }),
+        axios.get<RecordItem[]>(`${API_BASE}/processed-records`, { params: { batch_id: latest.batch_id } }),
         axios.get<RecordItem[]>(`${API_BASE}/review-queue`, { params: { batch_id: latest.batch_id } }),
         axios.get<UploadSummary['schema_report']>(`${API_BASE}/schema-drift-report`, { params: { batch_id: latest.batch_id } }),
       ])
@@ -153,7 +158,10 @@ function App() {
 
   const handleDownload = async (path: string, filename: string) => {
     try {
-      const response = await axios.get(`${API_BASE}${path}`, { responseType: 'blob' })
+      const response = await axios.get(`${API_BASE}${path}`, {
+        responseType: 'blob',
+        params: summary?.batch_id ? { batch_id: summary.batch_id } : undefined,
+      })
       const blob = new Blob([response.data], { type: 'text/csv' })
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
@@ -266,7 +274,7 @@ function App() {
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <StatCard icon="package" label="Total products" value={summary?.total_records ?? catalog.length} bgColor="from-blue-500 to-blue-700" />
                   <StatCard icon="check" label="Auto-approved" value={summary?.auto_approved_count ?? 0} bgColor="from-emerald-500 to-emerald-700" />
-                  <StatCard icon="alert" label="Needs review" value={summary?.needs_review_count ?? reviewQueue.length} bgColor="from-amber-400 to-orange-500" />
+                  <StatCard icon="alert" label="Needs review (auto)" value={summary?.needs_review_count ?? 0} bgColor="from-amber-400 to-orange-500" />
                   <StatCard icon="shield" label="Confidence" value={summary?.average_confidence ?? 0} unit="%" bgColor="from-purple-500 to-violet-700" />
                 </div>
 
@@ -279,8 +287,8 @@ function App() {
                 <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-slate-950">Clean catalog</h2>
-                      <p className="mt-1 text-sm text-slate-500">Standardized records ready for commerce operations.</p>
+                      <h2 className="text-lg font-semibold text-slate-950">Processed records</h2>
+                      <p className="mt-1 text-sm text-slate-500">All normalized rows for this batch. Only publishable records are included in the cleaned export.</p>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <label className="relative block">
@@ -335,7 +343,7 @@ function App() {
                               </div>
                             </td>
                             <td className="px-5 py-4">
-                              <StatusBadge status={record.status} />
+                              <RecordStatusBadge record={record} />
                             </td>
                           </tr>
                         ))}
@@ -463,7 +471,7 @@ function App() {
               <Field label="Tags" value={formState.cleaned_tags} onChange={(value) => setFormState({ ...formState, cleaned_tags: value })} className="sm:col-span-2" />
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
-              <button onClick={saveReview} className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700">Save review</button>
+              <button onClick={saveReview} className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700">Save & approve</button>
               <button onClick={() => setEditingRecord(null)} className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50">Cancel</button>
             </div>
           </div>
@@ -571,12 +579,40 @@ function InsightCard({ label, value, tone }: { label: string; value: string | nu
   )
 }
 
+function RecordStatusBadge({ record }: { record: RecordItem }) {
+  const reviewedStatus = record.review_status
+  const isHumanResolved = record.exportable && (reviewedStatus === 'approved' || reviewedStatus === 'edited')
+  const currentStatus =
+    record.exportable && reviewedStatus === 'edited'
+      ? 'Human-edited'
+      : record.exportable && reviewedStatus === 'approved'
+        ? 'Human-approved'
+        : reviewedStatus === 'rejected'
+          ? 'Rejected'
+          : record.reviewed && !record.exportable
+            ? 'Needs correction'
+            : record.status
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <StatusBadge status={currentStatus} />
+      {isHumanResolved ? (
+        <span className="text-[11px] font-medium text-slate-500">Automated: {record.status}</span>
+      ) : null}
+    </div>
+  )
+}
+
 function StatusBadge({ status, size = 'md' }: { status: string; size?: 'sm' | 'md' }) {
   const badges: Record<string, { bg: string; text: string; icon: IconName }> = {
     'Auto-approved': { bg: 'bg-emerald-100', text: 'text-emerald-800', icon: 'check' },
     'Needs Review': { bg: 'bg-amber-100', text: 'text-amber-800', icon: 'alert' },
     Duplicate: { bg: 'bg-slate-100', text: 'text-slate-800', icon: 'file' },
     Invalid: { bg: 'bg-rose-100', text: 'text-rose-800', icon: 'x' },
+    'Human-approved': { bg: 'bg-emerald-100', text: 'text-emerald-800', icon: 'check' },
+    'Human-edited': { bg: 'bg-amber-100', text: 'text-amber-800', icon: 'check' },
+    'Needs correction': { bg: 'bg-rose-100', text: 'text-rose-800', icon: 'alert' },
+    Rejected: { bg: 'bg-slate-200', text: 'text-slate-700', icon: 'x' },
   }
   const badge = badges[status] || badges['Needs Review']
   const isSmall = size === 'sm'

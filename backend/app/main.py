@@ -10,17 +10,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 
-from .application import load_batch_summary, process_catalog
+from .application import (
+    OrchestrationError,
+    load_batch_summary,
+    orchestrate_catalog,
+    processing_run_response,
+    refresh_curated_artifact,
+    refresh_processing_run,
+)
 from .database import create_db_and_tables, get_session
 from .exports import export_catalog
 from .ingestion import CatalogIngestionError
 from .models import CatalogRecord, ReviewItem, SchemaDriftReport, SchemaMapping, ProcessingRun
-from .processing import CatalogProcessor, PandasCatalogProcessor
+from .processing import CatalogProcessor
 from .policy import is_publishable, requires_attention
-from .reviews import apply_review_decision
+from .reviews import ReviewValidationError, apply_review_decision
+from .runtime import build_processor, build_storage
 from .scoping import latest_batch, resolve_batch_id
-from .schemas import BatchSummary, RecordResponse, ReviewDecisionRequest, ReviewItemResponse, ReviewRecordUpdate, SchemaDriftResponse, UploadSummary
+from .schemas import BatchSummary, ProcessingRunResponse, RecordResponse, ReviewDecisionRequest, ReviewItemResponse, ReviewRecordUpdate, SchemaDriftResponse, UploadSummary
 from .serializers import record_response
+from .storage import CatalogStorage
 
 
 @asynccontextmanager
@@ -40,27 +49,38 @@ app.add_middleware(
 
 
 def get_processor() -> CatalogProcessor:
-    return PandasCatalogProcessor()
+    return build_processor()
+
+
+def get_storage() -> CatalogStorage:
+    return build_storage()
 
 
 async def _process_upload(
     file: UploadFile,
     session: Session,
     processor: CatalogProcessor,
+    storage: CatalogStorage,
     default_currency: str | None = None,
 ) -> dict:
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
     try:
-        return process_catalog(
+        return orchestrate_catalog(
             file.filename,
             await file.read(),
             session,
             processor,
+            storage,
             default_currency=default_currency,
         )
     except CatalogIngestionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OrchestrationError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(exc), "batch_id": exc.batch_id, "run_id": exc.run_id, "error_code": exc.error_code},
+        ) from exc
 
 
 @app.post("/upload-catalog", response_model=UploadSummary)
@@ -69,8 +89,9 @@ async def upload_catalog(
     default_currency: str | None = Query(default=None, pattern="^[A-Za-z]{3}$"),
     session: Session = Depends(get_session),
     processor: CatalogProcessor = Depends(get_processor),
+    storage: CatalogStorage = Depends(get_storage),
 ):
-    return await _process_upload(file, session, processor, default_currency)
+    return await _process_upload(file, session, processor, storage, default_currency)
 
 
 @app.post("/batches", response_model=BatchSummary)
@@ -79,8 +100,9 @@ async def create_batch(
     default_currency: str | None = Query(default=None, pattern="^[A-Za-z]{3}$"),
     session: Session = Depends(get_session),
     processor: CatalogProcessor = Depends(get_processor),
+    storage: CatalogStorage = Depends(get_storage),
 ):
-    return await _process_upload(file, session, processor, default_currency)
+    return await _process_upload(file, session, processor, storage, default_currency)
 
 
 @app.get("/batches/{batch_id}", response_model=BatchSummary)
@@ -89,6 +111,28 @@ def get_batch(batch_id: int, session: Session = Depends(get_session)):
     if not summary:
         raise HTTPException(status_code=404, detail="Batch not found.")
     return summary
+
+
+@app.get("/processing-runs/{run_id}", response_model=ProcessingRunResponse)
+def get_processing_run(run_id: int, session: Session = Depends(get_session)):
+    run = session.get(ProcessingRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Processing run not found.")
+    return processing_run_response(run)
+
+
+@app.post("/processing-runs/{run_id}/refresh", response_model=ProcessingRunResponse)
+def refresh_run_status(
+    run_id: int,
+    session: Session = Depends(get_session),
+    processor: CatalogProcessor = Depends(get_processor),
+):
+    try:
+        return processing_run_response(refresh_processing_run(session, run_id, processor))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.get("/latest-batch", response_model=BatchSummary)
@@ -148,21 +192,64 @@ def get_batch_review_items(batch_id: int, session: Session = Depends(get_session
 
 
 @app.put("/review-queue/{record_id}", response_model=RecordResponse)
-def update_review_record(record_id: int, payload: ReviewRecordUpdate, session: Session = Depends(get_session)):
+def update_review_record(
+    record_id: int,
+    payload: ReviewRecordUpdate,
+    session: Session = Depends(get_session),
+    storage: CatalogStorage = Depends(get_storage),
+):
     record = session.get(CatalogRecord, record_id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found.")
     corrected = payload.model_dump(exclude={"mark_reviewed", "decision"}, exclude_none=True)
-    return record_response(apply_review_decision(session, record, payload.decision, corrected))
+    try:
+        reviewed = apply_review_decision(session, record, payload.decision, corrected)
+    except ReviewValidationError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(exc),
+                "validation_errors": exc.errors,
+            },
+        ) from exc
+    try:
+        refresh_curated_artifact(session, storage, reviewed.batch_id)
+    except OrchestrationError as exc:
+        raise HTTPException(status_code=502, detail={"message": str(exc), "error_code": exc.error_code}) from exc
+    return record_response(reviewed)
 
 
 @app.post("/review-items/{review_item_id}/decision", response_model=RecordResponse)
-def decide_review_item(review_item_id: int, payload: ReviewDecisionRequest, session: Session = Depends(get_session)):
+def decide_review_item(
+    review_item_id: int,
+    payload: ReviewDecisionRequest,
+    session: Session = Depends(get_session),
+    storage: CatalogStorage = Depends(get_storage),
+):
     item = session.get(ReviewItem, review_item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Review item not found.")
     record = session.get(CatalogRecord, item.record_id)
-    return record_response(apply_review_decision(session, record, payload.decision, payload.corrected_values.model_dump(exclude_none=True)))
+    try:
+        reviewed = apply_review_decision(
+            session,
+            record,
+            payload.decision,
+            payload.corrected_values.model_dump(exclude_none=True),
+        )
+    except ReviewValidationError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(exc),
+                "validation_errors": exc.errors,
+            },
+        ) from exc
+    try:
+        refresh_curated_artifact(session, storage, reviewed.batch_id)
+    except OrchestrationError as exc:
+        raise HTTPException(status_code=502, detail={"message": str(exc), "error_code": exc.error_code}) from exc
+    return record_response(reviewed)
 
 
 def _report_response(report: SchemaDriftReport) -> dict:

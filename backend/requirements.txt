@@ -10,3 +10,5 @@ alembic
 pytest
 httpx
 psycopg[binary]
+boto3
+databricks-sdk

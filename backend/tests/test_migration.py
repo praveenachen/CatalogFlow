@@ -3,6 +3,9 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from sqlmodel import SQLModel, create_engine
+
+from app import models
 
 
 def test_migration_preserves_legacy_phase_zero_data(tmp_path, monkeypatch):
@@ -57,4 +60,34 @@ def test_migration_preserves_legacy_phase_zero_data(tmp_path, monkeypatch):
     ).fetchone()
     assert migrated == ("$10", 0.62, "pending")
     assert connection.execute("SELECT automated_confidence FROM reviewitem").fetchone() == (0.62,)
+    upload_columns = {row[1] for row in connection.execute("PRAGMA table_info(uploadbatch)")}
+    assert {"publishable_count", "schema_drift_count", "schema_drift_severity", "quality_metrics"} <= upload_columns
+    run_columns = {row[1] for row in connection.execute("PRAGMA table_info(processingrun)")}
+    assert {"external_run_id", "error_code", "error_message", "raw_uri", "processed_uri", "curated_uri"} <= run_columns
+    assert connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'catalogartifact'"
+    ).fetchone() == ("catalogartifact",)
+    connection.close()
+
+
+def test_cloud_migration_resumes_when_create_all_precreated_artifact_table(tmp_path, monkeypatch):
+    assert models.CatalogArtifact.__tablename__ == "catalogartifact"
+    database = tmp_path / "precreated.db"
+    database_url = f"sqlite:///{database.as_posix()}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    backend = Path(__file__).parents[1]
+    config = Config(str(backend / "alembic.ini"))
+    config.set_main_option("script_location", str(backend / "migrations"))
+
+    command.upgrade(config, "0002_batch_attention_currency")
+    SQLModel.metadata.create_all(create_engine(database_url))
+    command.upgrade(config, "head")
+
+    connection = sqlite3.connect(database)
+    assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == ("0003_cloud_processing",)
+    run_columns = {row[1] for row in connection.execute("PRAGMA table_info(processingrun)")}
+    assert {"external_run_id", "result_metadata", "raw_uri", "processed_uri", "curated_uri"} <= run_columns
+    assert connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'catalogartifact'"
+    ).fetchone() == ("catalogartifact",)
     connection.close()

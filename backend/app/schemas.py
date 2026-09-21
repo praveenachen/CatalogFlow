@@ -28,9 +28,20 @@ class UploadSummary(BaseModel):
     duplicate_count: int
     invalid_count: int
     attention_count: int
+    publishable_count: int = 0
     average_confidence: float
     schema_drift_detected: bool
+    schema_drift_count: int = 0
+    schema_drift_severity: str = "Low"
     default_currency: str | None = None
+    quality_metrics: dict[str, Any] = Field(default_factory=dict)
+    run_id: int | None = None
+    processor_type: str | None = None
+    processing_status: str | None = None
+    external_run_id: str | None = None
+    raw_uri: str | None = None
+    processed_uri: str | None = None
+    curated_uri: str | None = None
     schema_report: SchemaReport
 
 
@@ -79,8 +90,11 @@ class SchemaDriftResponse(SchemaReport):
 
 
 class ReviewRecordUpdate(BaseModel):
+    cleaned_product_name: str | None = None
+    cleaned_description: str | None = None
     cleaned_category: str | None = None
     cleaned_price: float | None = Field(default=None, ge=0)
+    cleaned_currency: str | None = Field(default=None, min_length=3, max_length=3)
     cleaned_inventory: int | None = Field(default=None, ge=0)
     cleaned_tags: str | None = None
     mark_reviewed: bool = True
@@ -90,8 +104,11 @@ class ReviewRecordUpdate(BaseModel):
 class ReviewCorrections(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    cleaned_product_name: str | None = None
+    cleaned_description: str | None = None
     cleaned_category: str | None = None
     cleaned_price: float | None = Field(default=None, ge=0)
+    cleaned_currency: str | None = Field(default=None, min_length=3, max_length=3)
     cleaned_inventory: int | None = Field(default=None, ge=0)
     cleaned_tags: str | None = None
 
@@ -112,3 +129,19 @@ class ReviewItemResponse(BaseModel):
     reviewed_at: datetime | None = None
     decision: str | None = None
     corrected_values: dict[str, Any]
+
+
+class ProcessingRunResponse(BaseModel):
+    id: int
+    batch_id: int
+    processor_type: str
+    external_run_id: str | None = None
+    status: str
+    started_at: datetime
+    completed_at: datetime | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    raw_uri: str | None = None
+    processed_uri: str | None = None
+    curated_uri: str | None = None
+    result_metadata: dict[str, Any] = Field(default_factory=dict)

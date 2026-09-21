@@ -11,6 +11,9 @@ venv/
 .env
 .envrc
 catalogflow.db
+.catalogflow-data/
+*.egg-info/
+backend/build/
 
 # Node
 node_modules/

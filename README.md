@@ -19,7 +19,7 @@ It is a full-stack catalog quality tool for teams that need to ingest supplier o
 
 - Backend: FastAPI, Python, Pandas, Pandera, Pydantic, SQLModel, RapidFuzz, Alembic
 - Frontend: React, TypeScript, Vite, Tailwind CSS
-- Data: CSV import and export
+- Data: SQLite locally, PostgreSQL application state in production, local files or private S3 objects, and Delta outputs on Databricks
 
 ## Repository Structure
 
@@ -33,6 +33,7 @@ backend/
     matching.py
     models.py
     normalization.py
+    pipeline_contract.py
     processing.py
     profiling.py
     quality.py
@@ -41,6 +42,8 @@ backend/
     schemas.py
     validation.py
     database.py
+  databricks/
+    catalogflow_job.py
   migrations/
   tests/
   requirements.txt
@@ -78,6 +81,34 @@ The API runs at `http://localhost:8000`.
 
 `DATABASE_URL` defaults to local SQLite and can be set to a PostgreSQL SQLAlchemy URL in deployed environments.
 
+Local mode is the default and needs no AWS or Databricks credentials:
+
+```powershell
+$env:CATALOG_STORAGE = "local"
+$env:CATALOG_PROCESSOR = "local"
+```
+
+Copy `.env.example` values into your secret manager or runtime environment; the application does not load or log a committed secrets file.
+
+### Production processing
+
+Production mode stores the immutable upload in a private S3 bucket and submits the configured Databricks Job asynchronously:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://USER:PASSWORD@HOST:5432/catalogflow"
+$env:CATALOG_STORAGE = "s3"
+$env:AWS_REGION = "ca-central-1"
+$env:AWS_S3_BUCKET = "your-private-catalog-bucket"
+$env:CATALOG_PROCESSOR = "databricks"
+$env:DATABRICKS_HOST = "https://your-workspace.cloud.databricks.com"
+$env:DATABRICKS_JOB_ID = "123456789"
+# Prefer the supported Databricks authentication chain; set DATABRICKS_TOKEN only when required.
+```
+
+Build `backend` as a wheel and install it on the Databricks job cluster, then configure `backend/databricks/catalogflow_job.py` as a notebook task. The API passes only stable job parameters (batch, merchant, raw URI, and output URIs); it is not coupled to a workspace notebook path. The task writes Bronze metadata/raw bytes, full Silver records, publishable-only Gold records, and batch metrics as Delta datasets. Its JSON task result is ingested when `/processing-runs/{run_id}/refresh` observes terminal success.
+
+The Databricks task intentionally calls the shared deterministic transformation kernel so local and cloud classifications cannot drift. This is a correctness-first boundary: it moves execution, durable storage, scheduling, and Delta publication to Databricks, but a single CSV transform is currently bounded by the Python worker/driver memory available to that task. A native distributed Spark transform should replace that kernel only with behavioral-equivalence tests for normalization, fuzzy matching, scoring, and routing.
+
 ### Frontend
 
 In a second terminal:
@@ -102,6 +133,8 @@ A sample catalog is included at `frontend/public/sample-messy-catalog.csv`. Use 
 | `POST` | `/batches` | Batch-aware upload endpoint |
 | `GET` | `/latest-batch` | Return the current dashboard batch summary |
 | `GET` | `/batches/{batch_id}` | Return a batch summary and mappings |
+| `GET` | `/processing-runs/{run_id}` | Inspect local or Databricks execution state and artifact URIs |
+| `POST` | `/processing-runs/{run_id}/refresh` | Refresh an asynchronous Databricks run and ingest terminal metadata |
 | `GET` | `/batches/{batch_id}/profiling` | Return column profiles and schema drift |
 | `GET` | `/batches/{batch_id}/mappings` | Return mapping candidates and confidence |
 | `GET` | `/batches/{batch_id}/records` | Return normalized records for a batch |
@@ -120,15 +153,18 @@ A sample catalog is included at `frontend/public/sample-messy-catalog.csv`. Use 
 
 1. A user uploads a merchant CSV in the frontend.
 2. FastAPI receives the file through `POST /upload-catalog`.
-3. Pandas parses the uploaded rows.
-4. Profiling captures type, null, uniqueness, samples, and applicable validity rates.
-5. Exact, alias, and high-confidence fuzzy field mappings are applied; ambiguous mappings remain unresolved.
-6. Normalization cleans values while retaining raw rows and rule-level traces.
-7. Exact duplicates are blocked and fuzzy matches become review candidates without merging records.
-8. Weighted quality components assign an explainable automation score.
-9. Routing marks records as approved, needs review, duplicate, or invalid.
-10. SQLite or PostgreSQL stores batches, runs, mappings, raw and canonical values, traces, scores, and independent review metadata.
-11. The frontend displays catalog metrics, cleaned records, review work, drift details, and export actions.
+3. The configured storage adapter writes an immutable raw object locally or to S3.
+4. A `ProcessingRun` is created and the configured processor is submitted.
+5. Local mode runs the deterministic Pandas path synchronously; production mode returns `SUBMITTED` and Databricks is polled through the run endpoint.
+6. Pandas parses the uploaded rows.
+7. Profiling captures type, null, uniqueness, samples, and applicable validity rates.
+8. Exact, alias, and high-confidence fuzzy field mappings are applied; ambiguous mappings remain unresolved.
+9. Normalization cleans values while retaining raw rows and rule-level traces.
+10. Exact duplicates are blocked and fuzzy matches become review candidates without merging records.
+11. Weighted quality components assign an explainable automation score.
+12. Routing marks records as approved, needs review, duplicate, or invalid.
+13. Silver retains every processed record; Gold contains only auto-trusted or explicitly human-approved records.
+14. SQLite or PostgreSQL stores application/workflow state while local files or S3/Delta hold bulk artifacts.
 
 The MVP dashboard is scoped to the latest upload batch. Historical batches remain persisted and are available through batch-specific endpoints, but are not mixed into current dashboard counts, tables, review queues, or default exports.
 
@@ -141,7 +177,11 @@ Publishability is independent of automation confidence: automatically trusted re
 - Human review protects downstream systems from low-quality or ambiguous records.
 - Schema drift reporting makes supplier format changes visible before they break pipelines.
 - Duplicate records are flagged instead of deleted to avoid accidental data loss.
-- SQLite is used for local development; a production deployment should use PostgreSQL or a managed database.
+- S3 is used for durable immutable source files and replay instead of database blobs or host-local production files.
+- Databricks provides an isolated, schedulable batch execution path while Pandas avoids distributed overhead in local development and small tests.
+- Delta provides transactional, versionable Bronze/Silver/Gold datasets and a path for schema evolution that CSV-only outputs cannot provide.
+- PostgreSQL stores relational application and review state; bulk pipeline data remains in object/lakehouse storage.
+- Glue, Lambda, SQS, Redshift, and Kafka are intentionally absent because upload-triggered Jobs plus status polling satisfy this phase without extra control planes.
 
 ## License
 
