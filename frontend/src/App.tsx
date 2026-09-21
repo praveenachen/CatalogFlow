@@ -24,12 +24,14 @@ type RecordItem = {
 
 type UploadSummary = {
   upload_id: number
+  batch_id: number
   filename: string
   total_records: number
   auto_approved_count: number
   needs_review_count: number
   duplicate_count: number
   invalid_count: number
+  attention_count: number
   average_confidence: number
   schema_drift_detected: boolean
   schema_report: {
@@ -91,23 +93,28 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const [catalogRes, reviewRes] = await Promise.all([
-        axios.get<RecordItem[]>(`${API_BASE}/catalog`),
-        axios.get<RecordItem[]>(`${API_BASE}/review-queue`),
+      let latest: UploadSummary | null = null
+      try {
+        latest = (await axios.get<UploadSummary>(`${API_BASE}/latest-batch`)).data
+      } catch (error) {
+        if (!axios.isAxiosError(error) || error.response?.status !== 404) throw error
+      }
+      if (!latest) {
+        setSummary(null)
+        setCatalog([])
+        setReviewQueue([])
+        setDriftReport(null)
+        return
+      }
+      const [catalogRes, reviewRes, driftRes] = await Promise.all([
+        axios.get<RecordItem[]>(`${API_BASE}/catalog`, { params: { batch_id: latest.batch_id } }),
+        axios.get<RecordItem[]>(`${API_BASE}/review-queue`, { params: { batch_id: latest.batch_id } }),
+        axios.get<UploadSummary['schema_report']>(`${API_BASE}/schema-drift-report`, { params: { batch_id: latest.batch_id } }),
       ])
+      setSummary(latest)
       setCatalog(catalogRes.data)
       setReviewQueue(reviewRes.data)
-
-      try {
-        const driftRes = await axios.get<UploadSummary['schema_report']>(`${API_BASE}/schema-drift-report`)
-        setDriftReport(driftRes.data)
-      } catch (innerError) {
-        if (axios.isAxiosError(innerError) && innerError.response?.status === 404) {
-          setDriftReport(null)
-        } else {
-          throw innerError
-        }
-      }
+      setDriftReport(driftRes.data)
     } catch (error) {
       console.error(error)
     }
@@ -204,7 +211,7 @@ function App() {
         <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen((value) => !value)} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar onToggleSidebar={() => setSidebarOpen((value) => !value)} reviewCount={reviewQueue.length} />
+          <TopBar onToggleSidebar={() => setSidebarOpen((value) => !value)} attentionCount={summary?.attention_count ?? reviewQueue.length} />
 
           <main className="mx-auto w-full max-w-[1480px] flex-1 px-4 py-5 sm:px-6 lg:px-8">
             <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -512,7 +519,7 @@ function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   )
 }
 
-function TopBar({ onToggleSidebar, reviewCount }: { onToggleSidebar: () => void; reviewCount: number }) {
+function TopBar({ onToggleSidebar, attentionCount }: { onToggleSidebar: () => void; attentionCount: number }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -526,7 +533,7 @@ function TopBar({ onToggleSidebar, reviewCount }: { onToggleSidebar: () => void;
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800">{reviewCount} in review</span>
+          <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800">{attentionCount} need attention</span>
         </div>
       </div>
     </header>

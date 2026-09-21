@@ -4,3 +4,9 @@ pandas
 sqlmodel
 python-multipart
 python-dateutil
+rapidfuzz
+pandera[pandas]
+alembic
+pytest
+httpx
+psycopg[binary]

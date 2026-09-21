@@ -1,21 +1,21 @@
-item_name,product_type,cost,stock,labels,description
-Rustic planter,home goods,$24.00,15,Outdoor | Garden,Handmade ceramic planter with rustic finish
-Classic Tee,Mens Tops,19.99,20,Clothing,Fitted cotton shirt for everyday wear
-solid soap,skincare,$8.50,50,Beauty,Unscented organic soap bar
-modern desk lamp,decor,45,12,Lighting | Workspace,Minimalist LED table lamp
-Leather Running Shoes,womens shoes,120.00,5,Footwear | Sports,Comfortable trainers with arch support
-Bluetooth Speaker,electronics,65.00,25,Audio | Tech,Portable speaker with deep bass
-Vintage Vase,Home Goods,$32,8,Decorative | Ceramic,Vase with glazed finish and textured detail
-Fitness Band,Tech,29.95,invalid,Health | Wearables,Adjustable wrist band for workouts
-Kids Tee,t-shirt,14.50,10,Children,Soft cotton tee for kids
-Wireless Charger,laptop accessories,$25.00,18,Electronics | Mobile,Fast wireless charging pad
-Garden Shears,Home,12.99,40,Gardening | Tools,Precision pruning shears for flowers
-Acrylic Frame,decor,9.99,35,Photos | Home,Clear picture frame with modern profile
-Sports Socks,shoes,8.00,60,Sportswear,High-comfort sports socks pack
-Makeup Bag,beauty,22.00,14,Travel | Cosmetics,Nylon bag with easy clean lining
-Desk Organizer,furniture,$28.00,13,Office | Storage,Wooden desktop organizer with compartments
-Organic Lotion,cosmetics,15.00,22,Skincare | Wellness,Nourishing lotion for dry skin
-Summer Hat,Accessories,18,9,Headwear | Travel,Breathable cotton sun hat
-Kids Chair,home goods,45.00,7,Furniture | Children,Stackable playroom chair
-Running Shorts,Shirts,24.99,16,Activewear | Sports,Lightweight running shorts with pockets
-Ceramic Mug,Home Goods,11.50,Not available,Kitchen | Drinkware,High-fired mug with matte finish
+sku,item_name,product_type,cost,currency,stock,labels,description
+SKU001,Rustic planter,home goods,$24.00,USD,15,Outdoor | Garden,Handmade ceramic planter with rustic finish
+SKU002,Classic Tee,Mens Tops,19.99,USD,20,Clothing,Fitted cotton shirt for everyday wear
+SKU003,solid soap,skincare,$8.50,USD,50,Beauty,Unscented organic soap bar
+SKU004,modern desk lamp,decor,45,USD,12,Lighting | Workspace,Minimalist LED table lamp
+SKU005,Leather Running Shoes,womens shoes,120.00,USD,5,Footwear | Sports,Comfortable trainers with arch support
+SKU006,Bluetooth Speaker,electronics,65.00,USD,25,Audio | Tech,Portable speaker with deep bass
+SKU001,Vintage Vase,Home Goods,$32,USD,8,Decorative | Ceramic,Vase with glazed finish and textured detail
+SKU008,Fitness Band,Tech,29.95,USD,invalid,Health | Wearables,Adjustable wrist band for workouts
+SKU009,Kids Tee,t-shirt,14.50,USD,10,Children,Soft cotton tee for kids
+SKU010,Wireless Charger,laptop accessories,$25.00,USD,18,Electronics | Mobile,Fast wireless charging pad
+SKU011,Garden Shears,Home,12.99,USD,40,Gardening | Tools,Precision pruning shears for flowers
+SKU012,Bluetooth Speakers,electronics,64.00,USD,24,Audio | Tech,Portable speaker with strong bass
+SKU013,Sports Socks,shoes,8.00,USD,60,Sportswear,High-comfort sports socks pack
+SKU014,Makeup Bag,beauty,22.00,USD,14,Travel | Cosmetics,Nylon bag with easy clean lining
+SKU015,Desk Organizer,furniture,$28.00,USD,13,Office | Storage,Wooden desktop organizer with compartments
+SKU016,Organic Lotion,cosmetics,15.00,USD,22,Skincare | Wellness,Nourishing lotion for dry skin
+SKU017,Summer Hat,Accessories,18,USD,9,Headwear | Travel,Breathable cotton sun hat
+SKU018,Kids Chair,home goods,45.00,USD,7,Furniture | Children,Stackable playroom chair
+SKU019,Running Shorts,Shirts,24.99,USD,16,Activewear | Sports,Lightweight running shorts with pockets
+SKU020,Ceramic Mug,Home Goods,11.50,USD,Not available,Kitchen | Drinkware,High-fired mug with matte finish
