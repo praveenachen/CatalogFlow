@@ -400,6 +400,7 @@ def batch_summary(batch: UploadBatch, report: SchemaDriftReport | None, mappings
         "upload_id": batch.id,
         "batch_id": batch.id,
         "filename": batch.filename,
+        "uploaded_at": batch.uploaded_at,
         "total_records": batch.total_records,
         "auto_approved_count": batch.auto_approved_count,
         "needs_review_count": batch.needs_review_count,

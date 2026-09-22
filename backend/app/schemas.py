@@ -22,6 +22,7 @@ class UploadSummary(BaseModel):
     upload_id: int
     batch_id: int
     filename: str
+    uploaded_at: datetime
     total_records: int
     auto_approved_count: int
     needs_review_count: int
