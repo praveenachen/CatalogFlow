@@ -9,6 +9,14 @@ export function errorMessage(error: unknown): string {
   if (typeof detail === 'string') return detail
   if (detail?.validation_errors?.length) return detail.validation_errors.join(' · ')
   if (typeof detail?.message === 'string') return detail.message
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => {
+      const field = Array.isArray(item?.loc) ? item.loc.at(-1) : null
+      const label = typeof field === 'string' ? field.replace(/^cleaned_/, '').replace(/_/g, ' ') : 'Value'
+      return typeof item?.msg === 'string' ? `${label}: ${item.msg}` : null
+    }).filter((message): message is string => Boolean(message))
+    if (messages.length) return messages.join(' · ')
+  }
   return error.message || 'The request could not be completed.'
 }
 
