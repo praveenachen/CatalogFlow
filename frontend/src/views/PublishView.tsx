@@ -1,0 +1,8 @@
+import type { BatchSummary } from '../types'
+import { PublishSummary } from '../components/PublishSummary'
+
+export function PublishView({ summary, onExport, onReview }: { summary: BatchSummary; onExport: (path: string, filename: string) => void; onReview: () => void }) {
+  return <div className="space-y-6"><header><h1 className="text-[30px] font-semibold tracking-[-0.03em]">Ready to publish</h1><p className="mt-1.5 text-sm text-[#777]">Processed records are not automatically publishable. Export includes only policy-qualified rows.</p></header><PublishSummary summary={summary} onExport={onExport} onReview={onReview} /><section><h2 className="text-lg font-semibold">Supporting exports</h2><div className="mt-3 grid gap-4 md:grid-cols-2"><ExportCard title="Review report" detail="Human decisions, issue reasons, and unresolved records." onClick={() => onExport('/export/review-report', 'review-report.csv')} /><ExportCard title="Schema report" detail="Source-column changes and mapping diagnostics." onClick={() => onExport('/export/schema-drift-report', 'schema-drift-report.csv')} /></div></section></div>
+}
+
+function ExportCard({ title, detail, onClick }: { title: string; detail: string; onClick: () => void }) { return <button onClick={onClick} className="flex items-center justify-between rounded-xl border border-[#e3e3e5] bg-white p-5 text-left transition hover:border-[#c9c9cd] hover:shadow-sm"><span><span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs text-[#777]">{detail}</span></span><span className="ml-5 text-sm font-medium text-blue-600">Download CSV</span></button> }

@@ -22,6 +22,15 @@ class ReviewStatus(str, Enum):
     rejected = "rejected"
 
 
+class RunStatus(str, Enum):
+    pending = "PENDING"
+    submitted = "SUBMITTED"
+    running = "RUNNING"
+    completed = "COMPLETED"
+    failed = "FAILED"
+    cancelled = "CANCELLED"
+
+
 class CanonicalProduct(BaseModel):
     """Intentional API/domain contract; raw values live beside this model."""
 
@@ -108,3 +117,26 @@ class ProcessingResult(BaseModel):
     started_at: datetime
     completed_at: datetime
     default_currency: str | None = None
+
+
+class ProcessingRequest(BaseModel):
+    batch_id: int
+    merchant_id: int | None = None
+    raw_uri: str
+    processed_uri: str
+    curated_uri: str
+    default_currency: str | None = None
+    payload: bytes | None = Field(default=None, exclude=True, repr=False)
+
+
+class ProcessorSubmission(BaseModel):
+    status: RunStatus
+    external_run_id: str | None = None
+    result: ProcessingResult | None = None
+
+
+class ProcessorStatus(BaseModel):
+    status: RunStatus
+    error_code: str | None = None
+    error_message: str | None = None
+    result_metadata: dict[str, Any] = Field(default_factory=dict)

@@ -1,13 +1,15 @@
 import json
+import tempfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.database import get_session
-from app.main import app
+from app.main import app, get_storage
 from app.models import CatalogRecord
+from app.storage import LocalCatalogStorage
 
 
 def make_client():
@@ -19,7 +21,11 @@ def make_client():
             yield session
 
     app.dependency_overrides[get_session] = session_override
-    return TestClient(app), engine
+    storage_directory = tempfile.TemporaryDirectory()
+    app.dependency_overrides[get_storage] = lambda: LocalCatalogStorage(storage_directory.name)
+    client = TestClient(app)
+    client.storage_directory = storage_directory
+    return client, engine
 
 
 def test_batch_review_preserves_automation_confidence_and_exports():
@@ -189,4 +195,62 @@ def test_dashboard_and_default_exports_are_latest_batch_scoped():
     assert latest["attention_count"] == len(review) == 1
     assert "New Good" in exported.text
     assert "Old Product" not in exported.text
+    app.dependency_overrides.clear()
+
+
+def test_unresolved_invalid_record_cannot_be_human_approved_for_export():
+    client, _ = make_client()
+    payload = "product_name,price,currency,inventory\nCeramic Mug,11.50,USD,Not available\n"
+    batch = client.post("/batches", files={"file": ("catalog.csv", payload, "text/csv")}).json()
+    review_item = client.get(f"/batches/{batch['batch_id']}/review-items").json()[0]
+
+    blocked = client.post(
+        f"/review-items/{review_item['id']}/decision",
+        json={"decision": "edited", "corrected_values": {}},
+    )
+    assert blocked.status_code == 409
+    assert "inventory: invalid value" in blocked.json()["detail"]["validation_errors"]
+
+    latest = client.get(f"/batches/{batch['batch_id']}").json()
+    assert latest["publishable_count"] == 0
+    assert latest["attention_count"] == 1
+    assert len(client.get(f"/review-queue?batch_id={batch['batch_id']}").json()) == 1
+    assert client.get(f"/export/cleaned-catalog?batch_id={batch['batch_id']}").status_code == 404
+
+    fixed = client.post(
+        f"/review-items/{review_item['id']}/decision",
+        json={"decision": "edited", "corrected_values": {"cleaned_inventory": 7}},
+    )
+    assert fixed.status_code == 200
+    assert fixed.json()["exportable"] is True
+    assert fixed.json()["status"] == "Invalid"
+    assert fixed.json()["review_status"] == "edited"
+
+    exported = client.get(f"/export/cleaned-catalog?batch_id={batch['batch_id']}")
+    assert exported.status_code == 200
+    assert "Ceramic Mug" in exported.text
+    app.dependency_overrides.clear()
+
+
+def test_existing_reviewed_but_still_invalid_record_is_reclassified_as_attention():
+    client, engine = make_client()
+    payload = "product_name,price,currency,inventory\nCeramic Mug,11.50,USD,Not available\n"
+    batch = client.post("/batches", files={"file": ("catalog.csv", payload, "text/csv")}).json()
+
+    # Simulate a record approved under the older, overly permissive review rule.
+    with Session(engine) as session:
+        record = session.exec(select(CatalogRecord).where(CatalogRecord.batch_id == batch["batch_id"])).one()
+        record.review_status = "edited"
+        record.reviewed = True
+        record.exportable = True
+        session.add(record)
+        session.commit()
+
+    latest = client.get(f"/batches/{batch['batch_id']}").json()
+    assert latest["publishable_count"] == 0
+    assert latest["attention_count"] == 1
+    queue = client.get(f"/review-queue?batch_id={batch['batch_id']}").json()
+    assert len(queue) == 1
+    assert queue[0]["exportable"] is False
+    assert client.get(f"/export/cleaned-catalog?batch_id={batch['batch_id']}").status_code == 404
     app.dependency_overrides.clear()

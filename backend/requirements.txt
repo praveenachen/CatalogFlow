@@ -8,5 +8,7 @@ rapidfuzz
 pandera[pandas]
 alembic
 pytest
-httpx
+httpx2
 psycopg[binary]
+boto3
+databricks-sdk

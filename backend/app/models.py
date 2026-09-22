@@ -27,10 +27,14 @@ class UploadBatch(SQLModel, table=True):
     duplicate_count: int = 0
     invalid_count: int = 0
     attention_count: int = 0
+    publishable_count: int = 0
     average_confidence: float = 0.0
     schema_drift_detected: bool = False
+    schema_drift_count: int = 0
+    schema_drift_severity: str = "Low"
+    quality_metrics: str = "{}"
     default_currency: Optional[str] = None
-    status: str = "completed"
+    status: str = "PENDING"
 
     merchant: Optional[Merchant] = Relationship(back_populates="batches")
     records: list["CatalogRecord"] = Relationship(back_populates="batch")
@@ -41,9 +45,16 @@ class ProcessingRun(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     batch_id: int = Field(foreign_key="uploadbatch.id", index=True)
     processor_type: str = "local"
-    status: str = "completed"
+    external_run_id: Optional[str] = Field(default=None, index=True)
+    status: str = "PENDING"
     started_at: datetime
     completed_at: Optional[datetime] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+    raw_uri: Optional[str] = None
+    processed_uri: Optional[str] = None
+    curated_uri: Optional[str] = None
+    result_metadata: str = "{}"
     config_snapshot: str = "{}"
     batch: Optional[UploadBatch] = Relationship(back_populates="runs")
 
@@ -138,6 +149,18 @@ class Export(SQLModel, table=True):
     batch_id: Optional[int] = Field(default=None, foreign_key="uploadbatch.id", index=True)
     export_type: str
     row_count: int
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CatalogArtifact(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    batch_id: int = Field(foreign_key="uploadbatch.id", index=True)
+    merchant_id: Optional[int] = Field(default=None, foreign_key="merchant.id", index=True)
+    layer: str
+    object_uri: str
+    object_key: str
+    checksum: str
+    size_bytes: int
     created_at: datetime = Field(default_factory=utc_now)
 
 

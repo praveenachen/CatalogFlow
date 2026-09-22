@@ -1,0 +1,6 @@
+import type { BatchSummary, ProcessingRun } from '../types'
+import { StatusBadge } from '../components/StatusBadge'
+
+export function BatchesView({ summary, run }: { summary: BatchSummary; run: ProcessingRun | null }) {
+  return <div><header className="mb-7"><h1 className="text-[30px] font-semibold tracking-[-0.025em]">Batches</h1><p className="mt-1.5 text-[15px] text-[#6b6b6b]">Latest catalog processing batch and its publication state.</p></header><section className="overflow-hidden rounded-xl border border-[#e3e3e5] bg-white"><div className="grid grid-cols-[1.7fr_100px_120px_130px_150px] border-b border-[#ececee] bg-[#fafafa] px-5 py-3 text-xs font-medium text-[#797979]"><span>Catalog</span><span>Records</span><span>Publishable</span><span>Status</span><span>Uploaded</span></div><div className="grid grid-cols-[1.7fr_100px_120px_130px_150px] items-center px-5 py-4 text-sm"><div><p className="font-medium">{summary.filename}</p><p className="mt-1 font-mono text-xs text-[#8b8b8b]">CF-{String(summary.batch_id).padStart(4, '0')} · {run?.processor_type ?? 'local'}</p></div><span>{summary.total_records}</span><span>{summary.publishable_count}</span><span><StatusBadge status={summary.processing_status ?? summary.status} /></span><span className="text-xs text-[#777]">{new Date(summary.uploaded_at).toLocaleDateString()}</span></div></section></div>
+}
