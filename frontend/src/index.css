@@ -29,3 +29,101 @@ button:disabled { cursor: not-allowed; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(70, 70, 75, 0.22); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+
+/* Dark mode maps the existing neutral design tokens onto a Supabase-style
+   surface hierarchy. Semantic status colors remain intentionally distinct. */
+html.dark { color-scheme: dark; }
+html.dark body { background: #111111; color: #f5f5f5; }
+
+.dark .bg-white,
+.dark [class~="bg-white/95"] { background-color: #171717; }
+
+.dark [class~="bg-[#f7f7f8]"] { background-color: #111111; }
+.dark [class~="bg-[#fafafa]"],
+.dark [class~="bg-[#f1f1f2]"],
+.dark [class~="bg-[#f2f2f3]"],
+.dark [class~="bg-[#f3f3f4]"],
+.dark [class~="bg-[#f4f4f5]"] { background-color: #202020; }
+
+.dark [class~="bg-[#e2e2e4]"],
+.dark [class~="bg-[#e9e9eb]"],
+.dark [class~="bg-[#ececee]"],
+.dark [class~="bg-[#eeeeef]"] { background-color: #303030; }
+
+.dark [class~="text-[#171717]"],
+.dark [class~="text-[#222]"],
+.dark [class~="text-[#303030]"],
+.dark [class~="text-[#333]"],
+.dark [class~="text-[#444]"],
+.dark [class~="text-[#555]"] { color: #f5f5f5; }
+
+.dark [class~="text-[#666]"],
+.dark [class~="text-[#6b6b6b]"],
+.dark [class~="text-[#777]"],
+.dark [class~="text-[#797979]"],
+.dark [class~="text-[#888]"],
+.dark [class~="text-[#8a8a8a]"],
+.dark [class~="text-[#8b8b8b]"],
+.dark [class~="text-[#929292]"],
+.dark [class~="text-[#999]"],
+.dark [class~="text-[#9a9a9a]"],
+.dark [class~="text-[#a0a0a0]"],
+.dark [class~="text-[#aaa]"] { color: #a3a3a3; }
+
+.dark [class~="text-[#b2b2b2]"],
+.dark [class~="text-[#bbb]"],
+.dark [class~="text-[#ccc]"] { color: #737373; }
+
+.dark [class~="border-[#c9c9cd]"],
+.dark [class~="border-[#cfcfd2]"],
+.dark [class~="border-[#d8d8db]"],
+.dark [class~="border-[#d9d9dc]"],
+.dark [class~="border-[#dedee0]"],
+.dark [class~="border-[#dedee1]"],
+.dark [class~="border-[#e2e2e3]"],
+.dark [class~="border-[#e3e3e5]"],
+.dark [class~="border-[#e4e4e6]"],
+.dark [class~="border-[#e5e5e7]"],
+.dark [class~="border-[#e6e6e8]"],
+.dark [class~="border-[#e7e7e8]"],
+.dark [class~="border-[#e7e7e9]"],
+.dark [class~="border-[#ececee]"],
+.dark [class~="border-[#eeeeef]"] { border-color: #303030; }
+
+.dark [class~="divide-[#eeeeef]"] > :not([hidden]) ~ :not([hidden]) { border-color: #303030; }
+.dark [class~="hover:bg-[#f2f2f3]"]:hover,
+.dark [class~="hover:bg-[#f3f3f4]"]:hover,
+.dark [class~="hover:bg-[#f5f5f6]"]:hover,
+.dark [class~="hover:bg-[#f6f6f7]"]:hover,
+.dark [class~="hover:bg-[#f7f7f8]"]:hover,
+.dark [class~="hover:bg-[#fafafa]"]:hover { background-color: #262626; }
+.dark [class~="hover:text-[#171717]"]:hover,
+.dark [class~="hover:text-[#222]"]:hover { color: #f5f5f5; }
+
+.dark input,
+.dark select { background-color: #171717; border-color: #3a3a3a; color: #f5f5f5; }
+.dark input:disabled { background-color: #202020; color: #a3a3a3; }
+.dark input::placeholder { color: #737373; }
+
+.dark .eyebrow { color: #a3a3a3; }
+.dark .section-label { color: #d4d4d4; }
+.dark .action-primary { background-color: #f5f5f5; color: #111111; }
+.dark .action-primary:hover { background-color: #ffffff; }
+.dark .action-secondary { background-color: #202020; border-color: #3a3a3a; color: #f5f5f5; }
+.dark .action-secondary:hover { background-color: #292929; }
+.dark .action-danger { background-color: #202020; border-color: rgba(248, 113, 113, 0.35); color: #fca5a5; }
+
+.dark [class*="bg-emerald-50"] { background-color: rgba(16, 185, 129, 0.13); }
+.dark [class*="bg-amber-50"] { background-color: rgba(245, 158, 11, 0.13); }
+.dark [class*="bg-red-50"] { background-color: rgba(239, 68, 68, 0.13); }
+.dark [class*="bg-blue-50"] { background-color: rgba(59, 130, 246, 0.13); }
+.dark [class*="bg-indigo-50"] { background-color: rgba(99, 102, 241, 0.13); }
+.dark [class*="bg-amber-100"] { background-color: rgba(245, 158, 11, 0.18); }
+
+.dark [class*="text-emerald-7"], .dark [class*="text-emerald-8"] { color: #6ee7b7; }
+.dark [class*="text-amber-7"], .dark [class*="text-amber-8"], .dark [class*="text-amber-9"] { color: #fcd34d; }
+.dark [class*="text-red-6"], .dark [class*="text-red-7"], .dark [class*="text-red-8"], .dark [class*="text-red-9"] { color: #fca5a5; }
+.dark [class*="text-blue-6"], .dark [class*="text-blue-7"] { color: #93c5fd; }
+.dark [class*="text-indigo-6"], .dark [class*="text-indigo-7"], .dark [class*="text-indigo-8"] { color: #a5b4fc; }
+
+.dark ::-webkit-scrollbar-thumb { background-color: rgba(210, 210, 215, 0.22); }

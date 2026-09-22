@@ -1,4 +1,4 @@
-export type IconName = 'overview' | 'batches' | 'schema' | 'records' | 'review' | 'publish' | 'upload' | 'search' | 'filter' | 'check' | 'alert' | 'x' | 'arrow' | 'download' | 'refresh' | 'file' | 'chevron'
+export type IconName = 'overview' | 'batches' | 'schema' | 'records' | 'review' | 'publish' | 'upload' | 'search' | 'filter' | 'check' | 'alert' | 'x' | 'arrow' | 'download' | 'refresh' | 'file' | 'chevron' | 'sun' | 'moon'
 
 export function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: string }) {
   const paths: Record<IconName, JSX.Element> = {
@@ -19,6 +19,8 @@ export function Icon({ name, className = 'h-4 w-4' }: { name: IconName; classNam
     refresh: <><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 8a7 7 0 0 1 11.5-1L20 12M4 12l2.4 5a7 7 0 0 0 11.5-1" /></>,
     file: <><path d="M6 2h8l4 4v16H6zM14 2v5h5" /></>,
     chevron: <path d="m9 6 6 6-6 6" />,
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+    moon: <path d="M20 15.4A8.5 8.5 0 0 1 8.6 4a8.5 8.5 0 1 0 11.4 11.4Z" />,
   }
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
