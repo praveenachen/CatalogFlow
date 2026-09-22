@@ -93,7 +93,7 @@ export default function App() {
 
     {loading ? <StatePanel title="Loading workspace" detail="Reading the latest batch and processing state…" />
       : !summary ? <StatePanel title="No batch loaded" detail="Choose the included sample CSV or another merchant catalog, then ingest it to begin profiling and quality review." />
-        : view === 'overview' ? <OverviewView summary={summary} records={records} run={run} onNavigate={setView} onUpload={() => setUploadOpen(true)} onRefreshRun={handleRefreshRun} />
+        : view === 'overview' ? <OverviewView summary={summary} records={records} run={run} onNavigate={setView} onRefreshRun={handleRefreshRun} />
           : view === 'batches' ? <BatchesView summary={summary} run={run} />
           : view === 'schema' ? <SchemaView summary={summary} />
             : view === 'records' ? <RecordsView records={records} onReview={openReview} />
