@@ -402,6 +402,7 @@ def batch_summary(batch: UploadBatch, report: SchemaDriftReport | None, mappings
         "invalid_count": batch.invalid_count,
         "attention_count": batch.attention_count,
         "publishable_count": batch.publishable_count,
+        "excluded_count": max(0, batch.total_records - batch.publishable_count),
         "average_confidence": batch.average_confidence,
         "schema_drift_detected": batch.schema_drift_detected,
         "schema_drift_count": batch.schema_drift_count,
@@ -436,6 +437,7 @@ def load_batch_summary(session: Session, batch_id: int) -> dict[str, Any] | None
     response = batch_summary(batch, report, serialized)
     response["publishable_count"] = current_publishable
     response["attention_count"] = current_attention
+    response["excluded_count"] = max(0, batch.total_records - current_publishable)
     response["quality_metrics"] = {
         **response.get("quality_metrics", {}),
         "publishable": current_publishable,

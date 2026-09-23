@@ -30,6 +30,7 @@ class UploadSummary(BaseModel):
     invalid_count: int
     attention_count: int
     publishable_count: int = 0
+    excluded_count: int = 0
     average_confidence: float
     schema_drift_detected: bool
     schema_drift_count: int = 0

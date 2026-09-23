@@ -44,6 +44,7 @@ export type BatchSummary = {
   invalid_count: number
   attention_count: number
   publishable_count: number
+  excluded_count: number
   average_confidence: number
   schema_drift_detected: boolean
   schema_drift_count: number

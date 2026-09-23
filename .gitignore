@@ -14,10 +14,11 @@ htmlcov/
 .ruff_cache/
 .env
 .envrc
-catalogflow.db
+*.db
 .catalogflow-data/
 *.egg-info/
 backend/build/
+backend/source.csv
 
 # Node
 node_modules/

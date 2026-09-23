@@ -100,6 +100,7 @@ def test_sample_batch_has_mixed_quality_and_export_policy():
     assert batch["duplicate_count"] == 1
     assert batch["invalid_count"] == 2
     assert batch["attention_count"] == 4
+    assert batch["excluded_count"] == 4
     assert batch["schema_drift_detected"] is True
     assert batch["total_records"] == (
         batch["auto_approved_count"]
@@ -136,6 +137,10 @@ def test_reject_keeps_record_out_of_publishable_export():
     review_item = client.get(f"/batches/{batch['batch_id']}/review-items").json()[0]
     response = client.post(f"/review-items/{review_item['id']}/decision", json={"decision": "rejected"})
     assert response.json()["exportable"] is False
+    refreshed_batch = client.get(f"/batches/{batch['batch_id']}").json()
+    assert refreshed_batch["attention_count"] == 0
+    assert refreshed_batch["publishable_count"] == 0
+    assert refreshed_batch["excluded_count"] == 1
     exported = client.get(f"/export/cleaned-catalog?batch_id={batch['batch_id']}")
     assert exported.status_code == 404
     assert exported.json()["detail"] == "This batch has no publishable records to export."
