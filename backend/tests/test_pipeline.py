@@ -11,6 +11,7 @@ from app.processing import PandasCatalogProcessor
 from app.profiling import profile_dataframe
 from app.quality import calculate_quality
 from app.schema_mapping import map_columns
+from app.ingestion import CatalogIngestionError, read_csv
 
 
 def test_canonical_contract_validates_values():
@@ -107,3 +108,16 @@ def test_currency_priority_and_provenance():
     assert missing.canonical_values["currency"] is None
     assert any(error.startswith("currency:") for error in missing.validation_errors)
     assert next(trace for trace in missing.traces if trace.field == "currency").rule == "missing_currency"
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (b"", "empty"),
+        (b"product_name,price,currency\n", "no data rows"),
+        (b'product_name,price\n"unterminated,10\n', "Unable to parse CSV"),
+    ],
+)
+def test_empty_and_malformed_csv_inputs_are_rejected(payload, message):
+    with pytest.raises(CatalogIngestionError, match=message):
+        read_csv(payload)

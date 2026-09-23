@@ -254,3 +254,45 @@ def test_existing_reviewed_but_still_invalid_record_is_reclassified_as_attention
     assert queue[0]["exportable"] is False
     assert client.get(f"/export/cleaned-catalog?batch_id={batch['batch_id']}").status_code == 404
     app.dependency_overrides.clear()
+
+
+def test_unsupported_upload_has_a_readable_error():
+    client, _ = make_client()
+    response = client.post("/batches", files={"file": ("catalog.txt", b"not,csv", "text/plain")})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Please upload a CSV file."
+
+    header_only = client.post(
+        "/batches",
+        files={"file": ("header-only.csv", b"product_name,price,currency\n", "text/csv")},
+    )
+    assert header_only.status_code == 400
+    assert header_only.json()["detail"] == "The uploaded CSV contains no data rows."
+
+    malformed = client.post(
+        "/batches",
+        files={"file": ("malformed.csv", b'product_name,price\n"unterminated,10\n', "text/csv")},
+    )
+    assert malformed.status_code == 400
+    assert malformed.json()["detail"].startswith("Unable to parse CSV:")
+    app.dependency_overrides.clear()
+
+
+def test_explicit_stale_batch_never_falls_through_to_latest_data():
+    client, _ = make_client()
+    payload = "product_name,price,currency\nCurrent Product,10,USD\n"
+    current = client.post("/batches", files={"file": ("current.csv", payload, "text/csv")}).json()
+    assert client.get(f"/schema-drift-report?batch_id={current['batch_id']}").status_code == 200
+
+    for path in (
+        "/processed-records?batch_id=99999",
+        "/review-queue?batch_id=99999",
+        "/batches/99999/review-items",
+        "/schema-drift-report?batch_id=99999",
+        "/export/cleaned-catalog?batch_id=99999",
+        "/export/schema-drift-report?batch_id=99999",
+    ):
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Batch not found."
+    app.dependency_overrides.clear()

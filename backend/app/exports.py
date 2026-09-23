@@ -13,7 +13,10 @@ from .scoping import resolve_batch_id
 
 
 def export_catalog(session: Session, batch_id: int | None = None, review_report: bool = False) -> StreamingResponse:
-    scoped_batch_id = resolve_batch_id(session, batch_id)
+    try:
+        scoped_batch_id = resolve_batch_id(session, batch_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     if scoped_batch_id is None:
         raise HTTPException(status_code=404, detail="No catalog batch is available for export.")
     candidates = session.exec(

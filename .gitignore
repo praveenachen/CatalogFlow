@@ -8,6 +8,10 @@ venv/
 .venv/
 .pytest_cache/
 .pytest_tmp/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 .env
 .envrc
 catalogflow.db
@@ -24,3 +28,5 @@ build/
 # IDE
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db

@@ -19,4 +19,6 @@ def read_csv(payload: bytes) -> pd.DataFrame:
     frame.columns = [str(column).strip() for column in frame.columns]
     if frame.columns.duplicated().any():
         raise CatalogIngestionError("CSV contains duplicate column names.")
+    if frame.empty:
+        raise CatalogIngestionError("The uploaded CSV contains no data rows.")
     return frame

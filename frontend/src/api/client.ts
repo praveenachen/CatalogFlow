@@ -21,18 +21,19 @@ export function errorMessage(error: unknown): string {
 }
 
 export async function loadWorkspace() {
+  let summary: BatchSummary
   try {
-    const summary = (await http.get<BatchSummary>('/latest-batch')).data
-    const [records, reviewQueue, run] = await Promise.all([
-      http.get<RecordItem[]>('/processed-records', { params: { batch_id: summary.batch_id } }),
-      http.get<RecordItem[]>('/review-queue', { params: { batch_id: summary.batch_id } }),
-      summary.run_id ? http.get<ProcessingRun>(`/processing-runs/${summary.run_id}`) : Promise.resolve({ data: null }),
-    ])
-    return { summary, records: records.data, reviewQueue: reviewQueue.data, run: run.data }
+    summary = (await http.get<BatchSummary>('/latest-batch')).data
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 404) return null
     throw error
   }
+  const [records, reviewQueue, run] = await Promise.all([
+    http.get<RecordItem[]>('/processed-records', { params: { batch_id: summary.batch_id } }),
+    http.get<RecordItem[]>('/review-queue', { params: { batch_id: summary.batch_id } }),
+    summary.run_id ? http.get<ProcessingRun>(`/processing-runs/${summary.run_id}`) : Promise.resolve({ data: null }),
+  ])
+  return { summary, records: records.data, reviewQueue: reviewQueue.data, run: run.data }
 }
 
 export async function uploadCatalog(file: File, defaultCurrency?: string) {

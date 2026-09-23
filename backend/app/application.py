@@ -11,7 +11,7 @@ from .config import SETTINGS
 from .domain import ProcessingRequest, ProcessingResult, RunStatus
 from .ingestion import CatalogIngestionError
 from .medallion import gold_payload, quality_metrics, silver_payload
-from .pipeline_contract import automation_status
+from .pipeline_contract import automation_status, schema_drift_summary
 from .models import (
     CatalogArtifact,
     CatalogRecord,
@@ -53,12 +53,6 @@ def _json(value: Any) -> str:
         raise TypeError
 
     return json.dumps(value, default=default, sort_keys=True)
-
-
-def _drift_severity(result: ProcessingResult) -> str:
-    unresolved = sum(1 for mapping in result.mappings if mapping.canonical_field is None)
-    score = len(result.missing_columns) * 2 + len(result.unexpected_columns) + unresolved * 2
-    return "High" if score >= 6 else "Medium" if score >= 2 else "Low"
 
 
 def _source_value(result: ProcessingResult, raw: dict[str, Any], canonical_field: str) -> Any:
@@ -256,7 +250,7 @@ def _persist_result(
         if status != AUTOMATION_TRUSTED:
             session.add(ReviewItem(record_id=record.id, reason="; ".join(issues) or "Quality threshold not met", automated_confidence=confidence))
 
-    severity = _drift_severity(result)
+    drift_count, severity = schema_drift_summary(result)
     batch.total_records = len(stored)
     batch.auto_approved_count = sum(record.status == AUTOMATION_TRUSTED for record in stored)
     batch.needs_review_count = sum(record.status == AUTOMATION_NEEDS_REVIEW for record in stored)
@@ -265,7 +259,7 @@ def _persist_result(
     batch.attention_count = sum(requires_attention(record) for record in stored)
     batch.publishable_count = sum(is_publishable(record) for record in stored)
     batch.average_confidence = round(sum(record.confidence_score for record in stored) / max(1, len(stored)), 1)
-    batch.schema_drift_count = len(result.missing_columns) + len(result.unexpected_columns)
+    batch.schema_drift_count = drift_count
     batch.schema_drift_detected = batch.schema_drift_count > 0
     batch.schema_drift_severity = severity
     profiles = [profile.model_dump(mode="json") for profile in result.profiles]

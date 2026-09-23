@@ -56,6 +56,13 @@ def get_storage() -> CatalogStorage:
     return build_storage()
 
 
+def _resolve_batch_id(session: Session, batch_id: int | None) -> int | None:
+    try:
+        return resolve_batch_id(session, batch_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 async def _process_upload(
     file: UploadFile,
     session: Session,
@@ -145,7 +152,7 @@ def get_latest_batch(session: Session = Depends(get_session)):
 
 @app.get("/catalog", response_model=list[RecordResponse])
 def get_catalog(batch_id: int | None = None, session: Session = Depends(get_session)):
-    scoped_batch_id = resolve_batch_id(session, batch_id)
+    scoped_batch_id = _resolve_batch_id(session, batch_id)
     if scoped_batch_id is None:
         return []
     records = session.exec(
@@ -157,7 +164,7 @@ def get_catalog(batch_id: int | None = None, session: Session = Depends(get_sess
 @app.get("/processed-records", response_model=list[RecordResponse])
 @app.get("/batches/{batch_id}/records", response_model=list[RecordResponse])
 def get_processed_records(batch_id: int | None = None, session: Session = Depends(get_session)):
-    scoped_batch_id = resolve_batch_id(session, batch_id)
+    scoped_batch_id = _resolve_batch_id(session, batch_id)
     if scoped_batch_id is None:
         return []
     records = session.exec(
@@ -168,7 +175,7 @@ def get_processed_records(batch_id: int | None = None, session: Session = Depend
 
 @app.get("/review-queue", response_model=list[RecordResponse])
 def get_review_queue(batch_id: int | None = None, session: Session = Depends(get_session)):
-    scoped_batch_id = resolve_batch_id(session, batch_id)
+    scoped_batch_id = _resolve_batch_id(session, batch_id)
     if scoped_batch_id is None:
         return []
     records = session.exec(
@@ -179,6 +186,7 @@ def get_review_queue(batch_id: int | None = None, session: Session = Depends(get
 
 @app.get("/batches/{batch_id}/review-items", response_model=list[ReviewItemResponse])
 def get_batch_review_items(batch_id: int, session: Session = Depends(get_session)):
+    _resolve_batch_id(session, batch_id)
     items = session.exec(
         select(ReviewItem).join(CatalogRecord).where(CatalogRecord.batch_id == batch_id).order_by(ReviewItem.id)
     ).all()
@@ -265,7 +273,7 @@ def _report_response(report: SchemaDriftReport) -> dict:
 @app.get("/schema-drift-report", response_model=SchemaDriftResponse)
 @app.get("/batches/{batch_id}/profiling", response_model=SchemaDriftResponse)
 def get_schema_drift_report(batch_id: int | None = None, session: Session = Depends(get_session)):
-    scoped_batch_id = resolve_batch_id(session, batch_id)
+    scoped_batch_id = _resolve_batch_id(session, batch_id)
     query = select(SchemaDriftReport)
     if scoped_batch_id is not None:
         query = query.where(SchemaDriftReport.batch_id == scoped_batch_id)
@@ -299,7 +307,7 @@ def export_review_report(batch_id: int | None = Query(default=None), session: Se
 
 @app.get("/export/schema-drift-report")
 def export_schema_drift_report(batch_id: int | None = Query(default=None), session: Session = Depends(get_session)):
-    scoped_batch_id = resolve_batch_id(session, batch_id)
+    scoped_batch_id = _resolve_batch_id(session, batch_id)
     query = select(SchemaDriftReport)
     if scoped_batch_id is not None:
         query = query.where(SchemaDriftReport.batch_id == scoped_batch_id)

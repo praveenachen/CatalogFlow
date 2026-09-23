@@ -11,6 +11,8 @@ def latest_batch(session: Session) -> UploadBatch | None:
 
 def resolve_batch_id(session: Session, batch_id: int | None = None) -> int | None:
     if batch_id is not None:
+        if session.get(UploadBatch, batch_id) is None:
+            raise LookupError("Batch not found.")
         return batch_id
     batch = latest_batch(session)
     return batch.id if batch else None

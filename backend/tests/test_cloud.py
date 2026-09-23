@@ -36,6 +36,16 @@ def test_local_catalog_storage_is_immutable_for_raw_data(tmp_path):
         storage.save_raw(b"different", 7, 3, "merchant.csv")
 
 
+def test_repeated_upload_payloads_keep_checksum_identity_without_path_collision(tmp_path):
+    storage = LocalCatalogStorage(tmp_path)
+    payload = b"product_name,price,currency\nShoe,10,USD\n"
+    first = storage.save_raw(payload, batch_id=1, merchant_id=None, filename="first.csv")
+    second = storage.save_raw(payload, batch_id=2, merchant_id=None, filename="second.csv")
+    assert first.checksum == second.checksum
+    assert first.uri != second.uri
+    assert storage.read(first.uri) == storage.read(second.uri) == payload
+
+
 class FakeClientError(Exception):
     def __init__(self, code: str):
         self.response = {"Error": {"Code": code}}

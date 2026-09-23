@@ -6,6 +6,15 @@ from .domain import ProcessedRecord, ProcessingResult
 from .policy import AUTOMATION_DUPLICATE, AUTOMATION_INVALID, AUTOMATION_NEEDS_REVIEW, AUTOMATION_TRUSTED, REVIEW_NOT_REQUIRED, REVIEW_PENDING
 
 
+def schema_drift_summary(result: ProcessingResult) -> tuple[int, str]:
+    """Return the shared drift count/severity contract for local and cloud runs."""
+    unresolved = sum(1 for mapping in result.mappings if mapping.canonical_field is None)
+    drift_count = len(result.missing_columns) + len(result.unexpected_columns)
+    drift_score = len(result.missing_columns) * 2 + len(result.unexpected_columns) + unresolved * 2
+    severity = "High" if drift_score >= 6 else "Medium" if drift_score >= 2 else "Low"
+    return drift_count, severity
+
+
 def automation_status(record: ProcessedRecord) -> str:
     if record.validation_errors:
         return AUTOMATION_INVALID
@@ -61,9 +70,7 @@ def gold_rows(result: ProcessingResult, batch_id: int, merchant_id: int | None) 
 def result_metrics(result: ProcessingResult) -> dict[str, Any]:
     statuses = [automation_status(record) for record in result.records]
     attention = sum(status != AUTOMATION_TRUSTED for status in statuses)
-    unresolved = sum(1 for mapping in result.mappings if mapping.canonical_field is None)
-    drift_count = len(result.missing_columns) + len(result.unexpected_columns)
-    drift_score = len(result.missing_columns) * 2 + len(result.unexpected_columns) + unresolved * 2
+    drift_count, drift_severity = schema_drift_summary(result)
     return {
         "total_records": len(result.records),
         "auto_approved": statuses.count(AUTOMATION_TRUSTED),
@@ -77,7 +84,7 @@ def result_metrics(result: ProcessingResult) -> dict[str, Any]:
             1,
         ),
         "schema_drift_count": drift_count,
-        "schema_drift_severity": "High" if drift_score >= 6 else "Medium" if drift_score >= 2 else "Low",
+        "schema_drift_severity": drift_severity,
         "columns": [
             {
                 "source_name": profile.source_name,

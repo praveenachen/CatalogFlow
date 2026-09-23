@@ -1,4 +1,9 @@
 export type ViewId = 'overview' | 'batches' | 'schema' | 'records' | 'review' | 'publish'
+export type MappingMethod = 'exact' | 'alias' | 'fuzzy' | 'unresolved'
+export type AutomationStatus = 'Auto-approved' | 'Needs Review' | 'Duplicate' | 'Invalid'
+export type ReviewStatus = 'pending' | 'not_required' | 'approved' | 'edited' | 'rejected'
+export type ProcessingStatus = 'PENDING' | 'SUBMITTED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'pending' | 'submitted' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type ProcessorType = 'local' | 'databricks'
 
 export type ColumnProfile = {
   source_name: string
@@ -12,7 +17,7 @@ export type ColumnProfile = {
 export type Mapping = {
   source_field: string
   canonical_field?: string | null
-  method: string
+  method: MappingMethod
   confidence: number
   auto_applied: boolean
 }
@@ -45,10 +50,10 @@ export type BatchSummary = {
   schema_drift_severity: string
   default_currency?: string | null
   quality_metrics: Record<string, unknown>
-  status: string
+  status: ProcessingStatus
   run_id?: number | null
-  processor_type?: string | null
-  processing_status?: string | null
+  processor_type?: ProcessorType | null
+  processing_status?: ProcessingStatus | null
   external_run_id?: string | null
   raw_uri?: string | null
   processed_uri?: string | null
@@ -91,12 +96,13 @@ export type RecordItem = {
   automation_confidence: number
   quality_components: Record<string, QualityComponent>
   normalization_trace: NormalizationTrace[]
-  status: string
+  status: AutomationStatus
   recommended_action: string
   issue_reasons: string[]
   severity: string
-  review_status: string
-  reviewer_decision?: string | null
+  review_status: ReviewStatus
+  reviewed_at?: string | null
+  reviewer_decision?: ReviewDecision | null
   reviewed: boolean
   exportable: boolean
   duplicate_of_record_id?: number | null
@@ -107,9 +113,9 @@ export type RecordItem = {
 export type ProcessingRun = {
   id: number
   batch_id: number
-  processor_type: string
+  processor_type: ProcessorType
   external_run_id?: string | null
-  status: string
+  status: ProcessingStatus
   started_at: string
   completed_at?: string | null
   error_code?: string | null
